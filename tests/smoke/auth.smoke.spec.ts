@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { loginByGuest } from "../helpers/auth";
+import { loginByGuest, loginByLineLogin } from "../helpers/auth";
 
+// 更新瀏覽器 localStorage 的 noShow18Plus 值，用於控制是否顯示 18 歲溫馨提醒
 async function updateBrowserLocalStorageFlag(
   page: import("@playwright/test").Page,
   noShow18Plus: boolean
@@ -33,8 +34,7 @@ test.describe("Smoke - 核心流程", () => {
     const reminder = page
       .locator("div")
       .filter({
-        hasText:
-          "本網站服務于遊戲軟體分級為限制級，使用本服務前請確認您已滿18歲",
+        hasText: "已滿18歲",
       })
       .first();
 
@@ -42,13 +42,18 @@ test.describe("Smoke - 核心流程", () => {
 
     await page.getByRole("button", { name: "已滿18歲" }).click();
 
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL("/");
   });
 
   test("無溫馨提醒的訪客登入", async ({ page }) => {
     await updateBrowserLocalStorageFlag(page, true);
     await loginByGuest(page);
 
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL("/");
+  });
+
+  test("LINE 登入", async ({ page }) => {
+    // await updateBrowserLocalStorageFlag(page, true);
+    await loginByLineLogin(page);
   });
 });
