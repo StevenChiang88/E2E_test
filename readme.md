@@ -59,10 +59,10 @@
 - 可用指令：
   - `/help`
   - `/status`
-  - `/run smoke`
-  - `/run features`
-  - `/run regression`
-  - `/run all`
+  - `/smoke`
+  - `/features`
+  - `/regression`
+  - `/all`
 - 機器人只接受 `.env` 裡 `TG_CHAT_ID` 指定的 chat 發出的指令
 
 ## Docker 化部署

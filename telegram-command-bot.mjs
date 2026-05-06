@@ -77,9 +77,11 @@ function runCommand(command) {
 
 function parseRunTarget(text) {
   const trimmed = text.trim();
-  if (!trimmed.startsWith("/run")) return null;
-  const [, target] = trimmed.split(/\s+/, 2);
-  return target?.toLowerCase();
+  if (!trimmed.startsWith("/")) return null;
+  // 取出 /xxx 或 /xxx@botname 的 xxx 部分
+  const [head] = trimmed.split(/\s+/, 1);
+  const name = head.slice(1).split("@", 1)[0].toLowerCase();
+  return name || null;
 }
 
 async function handleMessage(message) {
@@ -89,32 +91,32 @@ async function handleMessage(message) {
   const text = message.text?.trim() ?? "";
   if (!text) return;
 
-  if (text === "/start" || text === "/help") {
+  const target = parseRunTarget(text);
+  if (!target) return;
+
+  if (target === "start" || target === "help") {
     await sendMessage(
       chatId,
       [
         "可用指令：",
-        "/run smoke",
-        "/run features",
-        "/run regression",
-        "/run all",
+        "/smoke",
+        "/features",
+        "/regression",
+        "/all",
         "/status",
       ].join("\n")
     );
     return;
   }
 
-  if (text === "/status") {
+  if (target === "status") {
     await sendMessage(chatId, isRunning ? "目前有測試正在執行中。" : "目前閒置中。");
     return;
   }
 
-  const target = parseRunTarget(text);
-  if (!target) return;
-
   const command = commandMap[target];
   if (!command) {
-    await sendMessage(chatId, `未知目標：${target}\n請用 /help 看可用指令。`);
+    await sendMessage(chatId, `未知指令：/${target}\n請用 /help 看可用指令。`);
     return;
   }
 

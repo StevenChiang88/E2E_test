@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { loginByGuest } from '../../helpers/auth';
+import { loginByReviewMode } from '../../helpers/auth';
 
-test.describe.skip('Feature - Popup（模板）', () => {
+test.describe('Feature - Popup（模板）', () => {
   test.beforeEach(async ({ page }) => {
-    await loginByGuest(page);
+    await loginByReviewMode(page);
   });
 
   test('首儲 popup：顯示、滑動、可跳轉', async ({ page }) => {

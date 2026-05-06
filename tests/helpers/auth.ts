@@ -1,11 +1,5 @@
 import { expect, Page } from "@playwright/test";
 
-type LoginOptions = {
-  account: string;
-  password: string;
-  loginPath: string;
-};
-
 type LineLoginOptions = {
   loginPath?: string;
   ageConfirmButtonName?: string | RegExp;
@@ -23,10 +17,12 @@ const loginPath = "/auth";
  * @param options
  * @returns
  */
-export async function loginByReviewMode(page: Page, options: LoginOptions) {
-  await page.goto(options.loginPath);
-  await page.getByPlaceholder("請輸入帳號").fill(options.account);
-  await page.getByPlaceholder("請輸入密碼").fill(options.password);
+export async function loginByReviewMode(page: Page) {
+  await page.goto(`${loginPath}?checkMode=true`);
+  await page.getByPlaceholder("請輸入帳號").fill(process.env.E2E_ACCOUNT ?? "");
+  await page
+    .getByPlaceholder("請輸入密碼")
+    .fill(process.env.E2E_PASSWORD ?? "");
 
   await Promise.all([
     page.locator("#silent-login").click(),
