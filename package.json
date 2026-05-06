@@ -7,6 +7,10 @@
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:smoke": "playwright test --headed tests/smoke",
+    "test:smoke:auto": "playwright test tests/smoke --grep-invert @manual",
+    "test:smoke:notify": "node run-smoke-telegram.mjs",
+    "bot:telegram": "node telegram-command-bot.mjs",
+    "schedule:smoke": "node run-smoke-scheduler.mjs",
     "test:features": "playwright test --headed tests/features",
     "test:regression": "playwright test --headed tests/regression",
     "test:list": "playwright test --list"

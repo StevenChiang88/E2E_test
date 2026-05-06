@@ -1,0 +1,30 @@
+services:
+  smoke-scheduler:
+    build: .
+    container_name: e2e-smoke-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: npm run schedule:smoke
+    volumes:
+      - playwright-report:/app/playwright-report
+      - test-results:/app/test-results
+
+  telegram-bot:
+    build: .
+    container_name: e2e-telegram-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TG_OFFSET_FILE=/app/data/.telegram-bot-offset.json
+    command: npm run bot:telegram
+    volumes:
+      - telegram-data:/app/data
+      - playwright-report:/app/playwright-report
+      - test-results:/app/test-results
+
+volumes:
+  telegram-data:
+  playwright-report:
+  test-results:

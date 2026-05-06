@@ -52,7 +52,7 @@ test.describe("Smoke - 核心流程", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("LINE 登入", async ({ page }) => {
+  test("LINE 登入 @manual", async ({ page }) => {
     // await updateBrowserLocalStorageFlag(page, true);
     await loginByLineLogin(page);
   });
