@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { loginByReviewMode } from "../helpers/auth";
 import {
   POPUP_CONTAINER,
   closeAllAutoPopups,
@@ -23,7 +22,8 @@ import {
 
 test.describe("Regression - Popup", () => {
   test.beforeEach(async ({ page }) => {
-    await loginByReviewMode(page);
+    // 已透過 setup-regression 共用 storageState，這裡只 goto 大廳，不重新登入
+    await page.goto("/");
     await waitLobbyReady(page);
   });
 

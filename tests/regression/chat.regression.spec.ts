@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { loginByReviewMode } from "../helpers/auth";
 import {
   POPUP_CONTAINER,
   closeAllAutoPopups,
@@ -18,7 +17,7 @@ import {
 
 test.describe("Regression - 聊天頻", () => {
   test.beforeEach(async ({ page }) => {
-    await loginByReviewMode(page);
+    await page.goto("/");
     await waitLobbyReady(page);
     await closeAllAutoPopups(page);
   });

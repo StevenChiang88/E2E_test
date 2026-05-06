@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { loginByReviewMode } from "../helpers/auth";
 import {
   closeAllAutoPopups,
   waitLobbyReady,
@@ -14,7 +13,7 @@ import {
 
 test.describe("Regression - 商城", () => {
   test.beforeEach(async ({ page }) => {
-    await loginByReviewMode(page);
+    await page.goto("/");
     await waitLobbyReady(page);
     await closeAllAutoPopups(page);
   });

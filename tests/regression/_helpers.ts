@@ -10,22 +10,115 @@ import { Page, Locator, expect } from "@playwright/test";
 export const POPUP_CONTAINER = ".page-popup-container";
 
 /**
- * 將大廳一進入時自動跳的彈窗（活動、首儲禮包詳細）依序關掉。
- * 使用 alt="close" 的圖按鈕；若有 .page-popup-container-close 也一併按。
- * 即使一個都沒有也會安靜結束（不會 throw）。
+ * 大廳常見的蓋板廣告 / 彈窗，包含但不限於：
+ *   - .page-popup-container（活動 swiper、首儲禮包詳細、個人頁、漢堡內彈窗…）
+ *   - 其他可能的 ad / banner / mask / overlay class
  */
-export async function closeAllAutoPopups(page: Page, opts?: { timeoutMs?: number }) {
-  const timeoutMs = opts?.timeoutMs ?? 8000;
+const POPUP_SELECTORS = [
+  ".page-popup-container",
+  "[class*='ad-popup']",
+  "[class*='banner-popup']",
+  "[class*='banner-mask']",
+  "[class*='overlay-ad']",
+  "[role='dialog']",
+];
+
+/**
+ * 各種「關閉」按鈕的選擇器，依優先順序嘗試。
+ * 注意：有些網站只有 parent 容器綁 click handler，img 本身點下去沒反應 —
+ * 所以 closeAllAutoPopups 內若 click img 失敗，會 fallback 點它的 parent。
+ */
+const CLOSE_SELECTORS = [
+  ".page-popup-container-close",
+  "img[alt='close']",
+  "img[alt='關閉']",
+  "[aria-label='close']",
+  "[aria-label='關閉']",
+  "button[class*='close']",
+  "[class*='popup-close']",
+  "[class*='btn-close']",
+];
+
+const POPUP_UNION = POPUP_SELECTORS.join(", ");
+const CLOSE_UNION = CLOSE_SELECTORS.join(", ");
+
+/**
+ * 把大廳所有蓋板廣告 / 跳出彈窗依序關掉。會撐住「關掉一個 → 下一個冒出來 →
+ * 再關 → ...」的連環攻擊。即使一個都沒有也會安靜結束（不會 throw）。
+ *
+ * @param opts.timeoutMs 整段最多花多少毫秒（預設 15s）
+ * @param opts.maxAttempts 最多關幾個（預設 20，防無限迴圈）
+ * @param opts.settleMs 每關完一個等多久讓下一個冒出（預設 600ms）
+ */
+export async function closeAllAutoPopups(
+  page: Page,
+  opts?: { timeoutMs?: number; maxAttempts?: number; settleMs?: number }
+) {
+  const timeoutMs = opts?.timeoutMs ?? 15_000;
+  const maxAttempts = opts?.maxAttempts ?? 20;
+  const settleMs = opts?.settleMs ?? 600;
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const closeBtns = page
-      .locator(`${POPUP_CONTAINER} img[alt="close"], ${POPUP_CONTAINER} .page-popup-container-close`);
-    const count = await closeBtns.count();
-    if (count === 0) break;
-    // 先關第一個（最上層）
-    await closeBtns.first().click({ force: true }).catch(() => {});
-    await page.waitForTimeout(300);
+
+  let attempts = 0;
+  let consecutiveEmpty = 0;
+
+  while (Date.now() < deadline && attempts < maxAttempts) {
+    // 先看還有沒有可見的彈窗容器
+    const popups = page.locator(POPUP_UNION);
+    const popupCount = await popups.count();
+    if (popupCount === 0) {
+      // 連續兩輪都沒看到才真的離開（防止下一個彈窗剛好還沒 render）
+      consecutiveEmpty++;
+      if (consecutiveEmpty >= 2) break;
+      await page.waitForTimeout(settleMs);
+      continue;
+    }
+    consecutiveEmpty = 0;
+
+    // 找最上層那個彈窗（DOM 中通常最後一個）的 close 鈕
+    const top = popups.last();
+    const closeBtn = top.locator(CLOSE_UNION).first();
+    const hasClose = await closeBtn.count();
+
+    if (hasClose > 0) {
+      // 先試點 close 本身
+      let closed = await tryClickAndWait(page, closeBtn, top, settleMs);
+      // 點不掉就試點它的 parent（有些站把 click handler 綁在 parent）
+      if (!closed) {
+        const parent = closeBtn.locator("xpath=..");
+        closed = await tryClickAndWait(page, parent, top, settleMs);
+      }
+      if (!closed) {
+        // 最後手段：按 Escape
+        await page.keyboard.press("Escape").catch(() => {});
+        await page.waitForTimeout(settleMs);
+      }
+    } else {
+      // 沒 close 鈕（例如純蓋板）→ 按 Escape
+      await page.keyboard.press("Escape").catch(() => {});
+      await page.waitForTimeout(settleMs);
+    }
+    attempts++;
   }
+}
+
+async function tryClickAndWait(
+  page: Page,
+  target: Locator,
+  popup: Locator,
+  settleMs: number
+): Promise<boolean> {
+  await target.click({ force: true, timeout: 1500 }).catch(() => {});
+  // 等 popup 真的消失（不是只 sleep 固定時間）
+  try {
+    await popup.waitFor({ state: "detached", timeout: settleMs });
+    return true;
+  } catch {
+    // 沒 detached 也許只是 hidden
+    const visible = await popup.isVisible().catch(() => false);
+    if (!visible) return true;
+  }
+  return false;
 }
 
 /**

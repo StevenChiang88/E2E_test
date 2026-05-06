@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { loginByReviewMode } from "../helpers/auth";
 import {
   POPUP_CONTAINER,
   closeAllAutoPopups,
@@ -52,7 +51,7 @@ async function openHamburger(page: import("@playwright/test").Page) {
 
 test.describe("Regression - 右上漢堡彈窗", () => {
   test.beforeEach(async ({ page }) => {
-    await loginByReviewMode(page);
+    await page.goto("/");
     await waitLobbyReady(page);
     await closeAllAutoPopups(page);
   });
