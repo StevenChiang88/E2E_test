@@ -16,7 +16,11 @@ module.exports = defineConfig({
   retries: process.env.CI ? 2 : 0,
   // regression 需要單一 session，本機跑也固定 1 worker，避免 cookie 被多開連線觸發踢線
   workers: 1,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    ["json", { outputFile: "test-results/results.json" }],
+  ],
   use: {
     baseURL,
     trace: "on-first-retry",

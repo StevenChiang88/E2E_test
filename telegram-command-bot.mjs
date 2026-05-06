@@ -8,6 +8,9 @@ const allowedChatId = process.env.TG_CHAT_ID;
 const pollTimeoutSec = Number(process.env.TG_POLL_TIMEOUT_SEC ?? 30);
 const pollIntervalMs = Number(process.env.TG_POLL_INTERVAL_MS ?? 1000);
 const offsetFile = process.env.TG_OFFSET_FILE ?? ".telegram-bot-offset.json";
+const reportJsonPath = process.env.PLAYWRIGHT_JSON_REPORT ?? "test-results/results.json";
+const TG_MESSAGE_LIMIT = 3500; // 留 buffer，Telegram 上限 4096
+const FAILED_LIST_MAX = 30;
 
 const commandMap = {
   smoke: "npx playwright test tests/smoke --grep-invert @manual",
@@ -75,6 +78,68 @@ function runCommand(command) {
   });
 }
 
+async function readFailedSpecs(jsonPath) {
+  try {
+    const raw = await fs.readFile(jsonPath, "utf8");
+    const report = JSON.parse(raw);
+    const failed = [];
+
+    const walk = (suites, fileName, parentTitles) => {
+      for (const suite of suites ?? []) {
+        const isTopLevel = !fileName;
+        const currentFile = isTopLevel ? suite.file || suite.title || "" : fileName;
+        const currentParents = isTopLevel
+          ? []
+          : [...parentTitles, suite.title].filter(Boolean);
+
+        for (const spec of suite.specs ?? []) {
+          if (spec.ok === false) {
+            const titlePath = [...currentParents, spec.title].filter(Boolean).join(" › ");
+            failed.push({ file: currentFile, title: titlePath });
+          }
+        }
+
+        if (suite.suites?.length) {
+          walk(suite.suites, currentFile, currentParents);
+        }
+      }
+    };
+
+    walk(report.suites ?? [], "", []);
+    return failed;
+  } catch (error) {
+    console.error(`讀取 Playwright JSON 報告失敗 (${jsonPath}):`, error.message);
+    return [];
+  }
+}
+
+function formatFailedSpecs(failed) {
+  if (failed.length === 0) return "";
+  const shown = failed.slice(0, FAILED_LIST_MAX);
+  const lines = [`Failed (${failed.length}):`];
+  for (const item of shown) {
+    const file = item.file ? `${item.file}: ` : "";
+    lines.push(`• ${file}${item.title}`);
+  }
+  if (failed.length > shown.length) {
+    lines.push(`…還有 ${failed.length - shown.length} 個未列出`);
+  }
+  return lines.join("\n");
+}
+
+async function clearReport(jsonPath) {
+  try {
+    await fs.unlink(jsonPath);
+  } catch {
+    // 檔案不存在或無法刪除都忽略
+  }
+}
+
+function truncateMessage(text, limit = TG_MESSAGE_LIMIT) {
+  if (text.length <= limit) return text;
+  return text.slice(0, limit - 20) + "\n…(訊息已截斷)";
+}
+
 function parseRunTarget(text) {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) return null;
@@ -129,13 +194,24 @@ async function handleMessage(message) {
   await sendMessage(chatId, `開始執行：${target}`);
 
   try {
+    await clearReport(reportJsonPath);
     const result = await runCommand(command);
     const emoji = result.code === 0 ? "✅" : "❌";
     const status = result.code === 0 ? "PASS" : "FAIL";
-    await sendMessage(
-      chatId,
-      `${emoji} ${target} ${status}\nCommand: ${result.command}\nDuration: ${result.seconds}s`
-    );
+
+    const lines = [
+      `${emoji} ${target} ${status}`,
+      `Command: ${result.command}`,
+      `Duration: ${result.seconds}s`,
+    ];
+
+    if (result.code !== 0) {
+      const failed = await readFailedSpecs(reportJsonPath);
+      const failedBlock = formatFailedSpecs(failed);
+      if (failedBlock) lines.push("", failedBlock);
+    }
+
+    await sendMessage(chatId, truncateMessage(lines.join("\n")));
   } finally {
     isRunning = false;
   }
